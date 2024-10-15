@@ -24,5 +24,5 @@ void Allocator::Reset()
 
 Allocator::~Allocator()
 {
-    delete buffer;
+    delete[] buffer;
 }
