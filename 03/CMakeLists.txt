@@ -37,6 +37,6 @@ set(INCLUDES
 target_include_directories(${CMAKE_PROJECT_NAME}_lib PRIVATE ${INCLUDES})
 target_include_directories(tests PRIVATE ${INCLUDES})
 
-target_link_libraries(tests PRIVATE ${CMAKE_PROJECT_NAME}_lib gtest_main)
+target_link_libraries(tests PRIVATE ${CMAKE_PROJECT_NAME}_lib gtest_main gtest)
 
 add_test(NAME AllocatorTests COMMAND tests)
