@@ -2,6 +2,38 @@
 
 #include "tokenizer.h"
 
+namespace {
+struct Functor {
+    void operator()(int newVal)
+    {
+        val = newVal;
+    }
+
+    void operator()(std::string_view arg)
+    {
+        str = std::string(arg.data(), arg.size());
+    }
+
+    static int val;
+    static std::string str;
+};
+int Functor::val = 0;
+std::string Functor::str = "";
+
+int intVal = 0;
+std::string strVal = "";
+
+void CallbackFuncInt(int val)
+{
+    intVal = val;
+}
+
+void CallbackFuncStr(std::string_view arg)
+{
+    strVal = std::string(arg.data(), arg.size());
+}
+} // namespace
+
 TEST(TokenizerTests, Base)
 {
     Tokenizer tokenizer;
@@ -68,6 +100,27 @@ TEST(TokenizerTests, DigitWithStrings)
     for (size_t i = 0; i < expectedStrings.size(); ++i) {
         ASSERT_STREQ(expectedStrings[i].c_str(), strings[i].c_str());
     }
+}
+
+TEST(CallbackTypes, FunctorCallback)
+{
+    Functor functor;
+    Tokenizer tokenizer;
+    tokenizer.SetOnDigit(functor);
+    tokenizer.SetOnString(functor);
+    tokenizer.Parse("42 C++");
+    ASSERT_EQ(Functor::val, 42);
+    ASSERT_STREQ(Functor::str.c_str(), "C++");
+}
+
+TEST(CallbackTypes, FunctionCallback)
+{
+    Tokenizer tokenizer;
+    tokenizer.SetOnDigit(&CallbackFuncInt);
+    tokenizer.SetOnString(&CallbackFuncStr);
+    tokenizer.Parse("42 C++");
+    ASSERT_EQ(intVal, 42);
+    ASSERT_STREQ(strVal.c_str(), "C++");
 }
 
 int main(int argc, char** argv)
