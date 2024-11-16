@@ -1,126 +1,188 @@
 #include <gtest/gtest.h>
 
-#include "tokenizer.h"
+#include "matrix.h"
+#include "matrix_row.h"
 
-namespace {
-struct Functor {
-    void operator()(int newVal)
+TEST(Row_tests, GetSize)
+{
     {
-        val = newVal;
+        Row row(1);
+        ASSERT_EQ(row.GetSize(), 1);
     }
-
-    void operator()(std::string_view arg)
     {
-        str = std::string(arg.data(), arg.size());
-    }
-
-    static int val;
-    static std::string str;
-};
-int Functor::val = 0;
-std::string Functor::str = "";
-
-int intVal = 0;
-std::string strVal = "";
-
-void CallbackFuncInt(int val)
-{
-    intVal = val;
-}
-
-void CallbackFuncStr(std::string_view arg)
-{
-    strVal = std::string(arg.data(), arg.size());
-}
-} // namespace
-
-TEST(TokenizerTests, Base)
-{
-    Tokenizer tokenizer;
-    ASSERT_NO_THROW(tokenizer.Parse(""));
-    ASSERT_NO_THROW(tokenizer.Parse("1 2 3 4 5 6"));
-}
-
-TEST(TokenizerTests, onStart)
-{
-    Tokenizer tokenizer;
-    int out = 0;
-    tokenizer.SetStartCallback([&out]() { out = 42; });
-    tokenizer.Parse("");
-    ASSERT_EQ(out, 42);
-}
-
-TEST(TokenizerTests, onEnd)
-{
-    Tokenizer tokenizer;
-    int out = 0;
-    tokenizer.SetEndCallback([&out]() { out = 42; });
-    tokenizer.Parse("");
-    ASSERT_EQ(out, 42);
-}
-
-TEST(TokenizerTests, onDigit)
-{
-    Tokenizer tokenizer;
-    static constexpr int expected = 42;
-    int out = 0;
-    tokenizer.SetOnDigit([&out](int val) { out = val; });
-    tokenizer.Parse("42");
-    ASSERT_EQ(out, expected);
-}
-
-TEST(TokenizerTests, onString)
-{
-    Tokenizer tokenizer;
-    static std::vector<const char*> expected = { "Hello,", "world!" };
-    std::vector<std::string> strings;
-    tokenizer.SetOnString([&strings](std::string_view val) { strings.emplace_back(val.data(), val.size()); });
-    tokenizer.Parse("Hello, world!");
-    ASSERT_EQ(expected.size(), strings.size());
-    for (size_t i = 0; i < expected.size(); ++i) {
-        ASSERT_STREQ(expected[i], strings[i].c_str());
+        Row row(2);
+        ASSERT_EQ(row.GetSize(), 2);
     }
 }
 
-TEST(TokenizerTests, DigitWithStrings)
+TEST(Row_tests, get_val)
 {
-    Tokenizer tokenizer;
-    static std::vector<int> expectedDigits = { 1, 2, 3, 4 };
-    static std::vector<std::string> expectedStrings = { "Hello,", "World!" };
-    std::vector<int> digits;
-    std::vector<std::string> strings;
-    tokenizer.SetOnDigit([&digits](int val) { digits.emplace_back(val); });
-    tokenizer.SetOnString([&strings](std::string_view val) { strings.emplace_back(val.data(), val.size()); });
-    tokenizer.Parse("1 2 Hello, 3 4 World!");
-    ASSERT_EQ(expectedDigits.size(), digits.size());
-    for (size_t i = 0; i < expectedDigits.size(); ++i) {
-        ASSERT_EQ(expectedDigits[i], digits[i]);
+    {
+        Row row(1, 1);
+        ASSERT_EQ(row[0], 1);
     }
-    ASSERT_EQ(expectedStrings.size(), strings.size());
-    for (size_t i = 0; i < expectedStrings.size(); ++i) {
-        ASSERT_STREQ(expectedStrings[i].c_str(), strings[i].c_str());
+
+    {
+        Row row(3);
+        ASSERT_EQ(row[2], 0);
+        row[0] = 1;
+        row[1] += 2;
+        row[2] *= 3;
+        ASSERT_EQ(row[0], 1);
+        ASSERT_EQ(row[1], 2);
+        ASSERT_EQ(row[2], 0);
     }
 }
 
-TEST(CallbackTypes, FunctorCallback)
+TEST(Row_tests, equal)
 {
-    Functor functor;
-    Tokenizer tokenizer;
-    tokenizer.SetOnDigit(functor);
-    tokenizer.SetOnString(functor);
-    tokenizer.Parse("42 C++");
-    ASSERT_EQ(Functor::val, 42);
-    ASSERT_STREQ(Functor::str.c_str(), "C++");
+    Row row(1);
+    ASSERT_EQ(row, row);
+    Row another(1, 2);
+    Row different_size(2, 2);
+    ASSERT_NE(row, another);
+    ASSERT_NE(row, different_size);
 }
 
-TEST(CallbackTypes, FunctionCallback)
+TEST(Row_arithmetic_tests, multiplication_to_number)
 {
-    Tokenizer tokenizer;
-    tokenizer.SetOnDigit(&CallbackFuncInt);
-    tokenizer.SetOnString(&CallbackFuncStr);
-    tokenizer.Parse("42 C++");
-    ASSERT_EQ(intVal, 42);
-    ASSERT_STREQ(strVal.c_str(), "C++");
+    Row row(1, 1);
+    row *= 1;
+    ASSERT_EQ(row[0], 1);
+    row *= 2;
+    ASSERT_EQ(row[0], 2);
+    row *= 0;
+    ASSERT_EQ(row[0], 0);
+}
+
+TEST(Row_arithmetic_tests, addition)
+{
+    Row row(1, 1);
+    Row another(1, 2);
+    Row res = row + another;
+    Row expected = Row(1, 3);
+    ASSERT_EQ(res, expected);
+
+    row += another;
+    ASSERT_EQ(row, expected);
+}
+
+TEST(Row_Death_tests, WrongSize)
+{
+    ASSERT_THROW(Row(0), std::invalid_argument);
+}
+
+TEST(Row_Death_tests, WrongIdx)
+{
+    ASSERT_THROW(Row(1)[static_cast<std::size_t>(- 1)], std::out_of_range);
+    ASSERT_THROW(Row(1)[static_cast<std::size_t>(2)], std::out_of_range);
+}
+
+TEST(Row_arithmetic_Death_tests, DifferentSizes)
+{
+    Row row(1);
+    Row another(2);
+    ASSERT_ANY_THROW(row + another);
+}
+
+TEST(Row_tests, print)
+{
+    std::stringstream stream;
+    std::string expected = "[ 0 ]";
+    Row row(1);
+    stream << row;
+    ASSERT_STREQ(expected.c_str(), stream.str().c_str());
+}
+
+TEST(Matrix_tests, GetSize)
+{
+    {
+        Matrix mat(1, 1, 1);
+        ASSERT_EQ(mat.GetRows(), 1);
+        ASSERT_EQ(mat.GetColumns(), 1);
+    }
+    {
+        Matrix mat(52, 52, 52);
+        ASSERT_EQ(mat.GetRows(), 52);
+        ASSERT_EQ(mat.GetColumns(), 52);
+    }
+}
+
+TEST(Matrix_tests, GetVal)
+{
+    Matrix mat(1, 1, 1);
+    ASSERT_EQ(mat[0], Row(1, 1));
+    ASSERT_EQ(mat[0][0], 1);
+}
+
+TEST(Matrix_tests, print)
+{
+    Matrix mat(2, 2, 2);
+    std::stringstream stream;
+    std::string expected = "{\n"
+                           "\t[ 2, 2 ]\n"
+                           "\t[ 2, 2 ]\n"
+                           "}";
+    stream << mat;
+    ASSERT_STREQ(expected.c_str(), stream.str().c_str());
+}
+
+TEST(Matrix_arithmetic_tests, equal)
+{
+    Matrix mat(1, 1, 1);
+    Matrix equal(1, 1, 1);
+    Matrix not_equal(1, 1, 2);
+    Matrix different_size(52, 52, 52);
+
+    ASSERT_EQ(mat, equal);
+    ASSERT_NE(mat, not_equal);
+    ASSERT_NE(mat, different_size);
+}
+
+TEST(Matrix_arithmetic_tests, multiplication_to_number)
+{
+    Matrix mat(2, 2, 1);
+    Matrix left_res = mat * 2;
+    Matrix right_res = 2 * mat;
+    Matrix expected(2, 2, 2);
+    ASSERT_EQ(left_res, right_res);
+    ASSERT_EQ(left_res, expected);
+    mat *= 2;
+    ASSERT_EQ(mat, expected);
+}
+
+TEST(Matrix_arithmetic_tests, addition)
+{
+    Matrix mat(2, 2, 1);
+    Matrix add(2, 2, 1);
+    Matrix expected(2, 2, 2);
+    Matrix res = mat + add;
+    ASSERT_EQ(res, expected);
+    mat += add;
+    ASSERT_EQ(res, expected);
+    res += mat;
+    ASSERT_NE(res, expected);
+}
+
+TEST(Matrix_Death_tests, WrongSize)
+{
+    ASSERT_THROW(Matrix(0, 1, 1), std::invalid_argument);
+    ASSERT_THROW(Matrix(1, 0, 1), std::invalid_argument);
+}
+
+TEST(Matrix_Death_tests, WrongIdx)
+{
+    ASSERT_THROW(Matrix(1, 2)[static_cast<std::size_t>(-1)], std::out_of_range);
+    ASSERT_THROW(Matrix(1, 1)[2ull], std::out_of_range);
+}
+
+TEST(Matrix_arithmetic_Death_tests, DifferentSizes)
+{
+    Matrix mat(1, 1, 1);
+    Matrix another_rows(2, 1, 2);
+    Matrix another_cols(1, 2, 1);
+    ASSERT_ANY_THROW(mat + another_rows);
+    ASSERT_ANY_THROW(mat + another_cols);
 }
 
 int main(int argc, char** argv)

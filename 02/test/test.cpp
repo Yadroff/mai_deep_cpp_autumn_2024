@@ -1,97 +1,126 @@
 #include <gtest/gtest.h>
 
-#include "allocator.h"
-#include "common.h"
+#include "tokenizer.h"
 
-TEST(AllocTests, Byte)
+namespace {
+struct Functor {
+    void operator()(int newVal)
+    {
+        val = newVal;
+    }
+
+    void operator()(std::string_view arg)
+    {
+        str = std::string(arg.data(), arg.size());
+    }
+
+    static int val;
+    static std::string str;
+};
+int Functor::val = 0;
+std::string Functor::str = "";
+
+int intVal = 0;
+std::string strVal = "";
+
+void CallbackFuncInt(int val)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(BYTE));
-    BYTE* byte = nullptr;
-    ASSERT_NO_THROW(byte = alloc.Alloc(sizeof(BYTE)));
-    ASSERT_NE(byte, nullptr);
+    intVal = val;
 }
 
-TEST(AllocTests, Int)
+void CallbackFuncStr(std::string_view arg)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(int));
-    int* ptr = nullptr;
-    ASSERT_NO_THROW(ptr = reinterpret_cast<int*>(alloc.Alloc(sizeof(int))));
-    ASSERT_NE(ptr, nullptr);
+    strVal = std::string(arg.data(), arg.size());
+}
+} // namespace
+
+TEST(TokenizerTests, Base)
+{
+    Tokenizer tokenizer;
+    ASSERT_NO_THROW(tokenizer.Parse(""));
+    ASSERT_NO_THROW(tokenizer.Parse("1 2 3 4 5 6"));
 }
 
-TEST(ResetTests, BeforeResetEqAfterReset)
+TEST(TokenizerTests, onStart)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(BYTE));
-    BYTE* beforeReset = nullptr;
-    ASSERT_NO_THROW(beforeReset = alloc.Alloc(sizeof(BYTE)));
-    alloc.Reset();
-    BYTE* afterReset = nullptr;
-    ASSERT_NO_THROW(afterReset = alloc.Alloc(sizeof(BYTE)));
-    ASSERT_EQ(beforeReset, afterReset);
+    Tokenizer tokenizer;
+    int out = 0;
+    tokenizer.SetStartCallback([&out]() { out = 42; });
+    tokenizer.Parse("");
+    ASSERT_EQ(out, 42);
 }
 
-TEST(ResetTests, UseAfterReset)
+TEST(TokenizerTests, onEnd)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(int));
-    int* beforeReset = reinterpret_cast<int*>(alloc.Alloc(sizeof(int)));
-    *beforeReset = 42;
-    alloc.Reset();
-    int* afterReset = reinterpret_cast<int*>(alloc.Alloc(sizeof(int)));
-    ASSERT_EQ(beforeReset, afterReset);
-    ASSERT_EQ(*beforeReset, *afterReset);
-    *afterReset = 0;
-    ASSERT_EQ(*beforeReset, *afterReset);
+    Tokenizer tokenizer;
+    int out = 0;
+    tokenizer.SetEndCallback([&out]() { out = 42; });
+    tokenizer.Parse("");
+    ASSERT_EQ(out, 42);
 }
 
-TEST(MakeAllocator, MakeNewAlloc)
+TEST(TokenizerTests, onDigit)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(BYTE));
-    alloc.MakeAllocator(sizeof(int));
+    Tokenizer tokenizer;
+    static constexpr int expected = 42;
+    int out = 0;
+    tokenizer.SetOnDigit([&out](int val) { out = val; });
+    tokenizer.Parse("42");
+    ASSERT_EQ(out, expected);
 }
 
-TEST(MakeAllocator, MakeAndAlloc)
+TEST(TokenizerTests, onString)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(BYTE));
-    alloc.MakeAllocator(sizeof(int));
-    int* ptr = nullptr;
-    ASSERT_NO_THROW(ptr = reinterpret_cast<int*>(alloc.Alloc(sizeof(int))));
-    ASSERT_NE(ptr, nullptr);
+    Tokenizer tokenizer;
+    static std::vector<const char*> expected = { "Hello,", "world!" };
+    std::vector<std::string> strings;
+    tokenizer.SetOnString([&strings](std::string_view val) { strings.emplace_back(val.data(), val.size()); });
+    tokenizer.Parse("Hello, world!");
+    ASSERT_EQ(expected.size(), strings.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        ASSERT_STREQ(expected[i], strings[i].c_str());
+    }
 }
 
-TEST(AllocatorTests_Death, EmptyBuff)
+TEST(TokenizerTests, DigitWithStrings)
 {
-    Allocator alloc;
-    ASSERT_THROW(alloc.Alloc(sizeof(BYTE)), std::bad_alloc);
+    Tokenizer tokenizer;
+    static std::vector<int> expectedDigits = { 1, 2, 3, 4 };
+    static std::vector<std::string> expectedStrings = { "Hello,", "World!" };
+    std::vector<int> digits;
+    std::vector<std::string> strings;
+    tokenizer.SetOnDigit([&digits](int val) { digits.emplace_back(val); });
+    tokenizer.SetOnString([&strings](std::string_view val) { strings.emplace_back(val.data(), val.size()); });
+    tokenizer.Parse("1 2 Hello, 3 4 World!");
+    ASSERT_EQ(expectedDigits.size(), digits.size());
+    for (size_t i = 0; i < expectedDigits.size(); ++i) {
+        ASSERT_EQ(expectedDigits[i], digits[i]);
+    }
+    ASSERT_EQ(expectedStrings.size(), strings.size());
+    for (size_t i = 0; i < expectedStrings.size(); ++i) {
+        ASSERT_STREQ(expectedStrings[i].c_str(), strings[i].c_str());
+    }
 }
 
-TEST(AllocatorTests_Death, BigAlloc)
+TEST(CallbackTypes, FunctorCallback)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(BYTE));
-    ASSERT_THROW(alloc.Alloc(sizeof(int)), std::bad_alloc);
+    Functor functor;
+    Tokenizer tokenizer;
+    tokenizer.SetOnDigit(functor);
+    tokenizer.SetOnString(functor);
+    tokenizer.Parse("42 C++");
+    ASSERT_EQ(Functor::val, 42);
+    ASSERT_STREQ(Functor::str.c_str(), "C++");
 }
 
-TEST(AllocatorTests_Death, NegativeSize)
+TEST(CallbackTypes, FunctionCallback)
 {
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(BYTE));
-    ASSERT_THROW(alloc.Alloc(static_cast<size_t>(-1)), std::bad_alloc);
-}
-
-TEST(AllocatorTests_Death, UseAfterRealloc)
-{
-    Allocator alloc;
-    alloc.MakeAllocator(sizeof(BYTE));
-    BYTE* ptr = alloc.Alloc(sizeof(BYTE));
-    alloc.MakeAllocator(sizeof(int));
-    BYTE byte;
-    ASSERT_DEATH(byte = *ptr, "");
+    Tokenizer tokenizer;
+    tokenizer.SetOnDigit(&CallbackFuncInt);
+    tokenizer.SetOnString(&CallbackFuncStr);
+    tokenizer.Parse("42 C++");
+    ASSERT_EQ(intVal, 42);
+    ASSERT_STREQ(strVal.c_str(), "C++");
 }
 
 int main(int argc, char** argv)

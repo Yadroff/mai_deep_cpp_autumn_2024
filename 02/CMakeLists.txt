@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(allocator)
+project(tokenizer)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,12 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message("Build for Linux")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fsanitize=address -g -pthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fsanitize=address -g")
 endif ()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     message("Build for Windows")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall /WX /fsanitize=address /Zi")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall /fsanitize=address /Zi")
     message("Downloading GTest")
     include(FetchContent)
     FetchContent_Declare(
@@ -27,7 +27,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     message("GTest downloaded!")
 endif()
 
-add_library(${CMAKE_PROJECT_NAME}_lib src/allocator.cpp)
+add_library(${CMAKE_PROJECT_NAME}_lib src/tokenizer.cpp)
 add_executable(tests test/test.cpp)
 
 set(INCLUDES
