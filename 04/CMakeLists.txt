@@ -18,6 +18,12 @@ set(INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set(CMAKE_BUILD_TYPE Release)
 
+target_compile_definitions(${CMAKE_PROJECT_NAME}
+        PRIVATE
+        # If the debug configuration pass the DEBUG define to the compiler
+        $<$<CONFIG:Debug>:DEBUG>
+        )
+
 # Дополнительные флаги компилятора для Release
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
     # Например, можно указать оптимизацию
@@ -26,9 +32,3 @@ endif ()
 
 add_subdirectory(src)
 add_subdirectory(tests)
-
-target_compile_definitions(${CMAKE_PROJECT_NAME}
-        PRIVATE
-        # If the debug configuration pass the DEBUG define to the compiler
-        $<$<CONFIG:Debug>:DEBUG>
-        )
