@@ -5,7 +5,7 @@ operator<<(Serializer& ser, const T& obj)
 #ifdef DEBUG
     std::cout << "Serializing object of " << typeid(T).name();
 #endif
-    ser.save(obj);
+    ser(obj);
     return ser;
 }
 
@@ -17,8 +17,14 @@ operator<<(Serializer& ser, const T& arr)
     std::cout << "Serializing array of " << typeid(T).name();
 #endif
     for (const auto& val : arr) {
-        ser.save(val);
+        ser(val);
     }
+    return ser;
+}
+
+Serializer& operator<<(Serializer& ser, const char* val)
+{
+    ser(std::string_view(val));
     return ser;
 }
 

@@ -214,6 +214,14 @@ TEST_F(Deserializer_Test, ManySaveCalls)
     ASSERT_EQ(err, Deserializer::NoError);
 }
 
+TEST_F(Serializer_Test, SerializeViaOperator)
+{
+    std::stringstream stream;
+    Serializer ser(stream);
+    ser << true << 1234 << "Hello, world!";
+    ASSERT_STREQ(stream.str().c_str(), "true 1234 13 Hello, world!");
+}
+
 TEST_F(Deserializer_Test, CorruptedData)
 {
     std::stringstream stream;
@@ -248,6 +256,20 @@ TEST_F(Deserializer_Test, Integration)
     ASSERT_EQ(ll_val, 1234);
     ASSERT_EQ(test_data.first, false);
     ASSERT_EQ(test_data.second, 123);
+    ASSERT_STREQ(str_val.c_str(), "Hello, world!");
+}
+
+TEST_F(Deserializer_Test, DeserializeViaOperator)
+{
+    std::stringstream stream;
+    stream << "true 1234 13 Hello, world!";
+    Deserializer ser(stream);
+    bool bool_val;
+    int int_val;
+    std::string str_val;
+    ser >> bool_val >> int_val >> str_val;
+    ASSERT_EQ(bool_val, true);
+    ASSERT_EQ(int_val, 1234);
     ASSERT_STREQ(str_val.c_str(), "Hello, world!");
 }
 

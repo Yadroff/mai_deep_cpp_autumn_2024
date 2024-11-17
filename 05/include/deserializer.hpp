@@ -1,23 +1,23 @@
 template<typename T>
 typename std::enable_if<!std::is_array<T>::value, Deserializer&>::type
-operator<<(Deserializer& ser, const T& obj)
+operator>>(Deserializer& ser, T& obj)
 {
 #ifdef DEBUG
     std::cout << "Deserializing object of " << typeid(T).name() << std::endl;
 #endif
-    ser.load(obj);
+    ser(obj);
     return ser;
 }
 
 template<typename T>
 typename std::enable_if<std::is_array<T>::value, Deserializer&>::type
-operator<<(Deserializer& ser, const T& arr)
+operator>>(Deserializer& ser, T& arr)
 {
 #ifdef DEBUG
     std::cout << "Deserializing array of " << typeid(T).name() << " size " << std::size(arr) << std::endl;
 #endif
-    for (const auto& val : arr) {
-        ser.load(val);
+    for (auto& val : arr) {
+        ser(val);
     }
     return ser;
 }
